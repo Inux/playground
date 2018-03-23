@@ -1,0 +1,1 @@
+python s1.py && python s2.py
