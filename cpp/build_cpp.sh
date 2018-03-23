@@ -4,6 +4,7 @@
 cmds=(
     '(cd multithreading; ./build.sh;)'
     '(cd generics; ./build.sh;)'
+    '(cd lists; ./build.sh;)'
 )
 
 #makes the actual build
