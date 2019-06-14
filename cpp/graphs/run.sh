@@ -1,0 +1,1 @@
+(cd build && ./inuxcore_lib)

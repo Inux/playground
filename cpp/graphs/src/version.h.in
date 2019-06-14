@@ -1,0 +1,2 @@
+#define inuxcore_VERSION_MAJOR @inuxcore_VERSION_MAJOR@
+#define inuxcore_VERSION_MINOR @inuxcore_VERSION_MINOR@
