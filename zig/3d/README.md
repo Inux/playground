@@ -1,6 +1,11 @@
-# Zig Solar System Explorer
+# 🌌 STELLAR HARVEST
 
-A 3D interactive solar system explorer that showcases **Zig's C interoperability** by wrapping the raylib C graphics library.
+**A AAA Ecosystem Management Game Built in Zig**
+
+Transform and balance planetary ecosystems across multiple solar systems. Built from scratch in Zig, showcasing professional game architecture and C library interoperability.
+
+> **Status**: Phase 1 Complete ✅ | Currently in development
+> **Next**: Phase 2 - Visual Quality Upgrade
 
 ## Features
 
