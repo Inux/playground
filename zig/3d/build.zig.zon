@@ -1,0 +1,11 @@
+.{
+    .fingerprint = 0x2889391703994862,
+    .name = .solar_system,
+    .version = "0.1.0",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
