@@ -14,6 +14,9 @@ const CameraController = @import("render/camera.zig").CameraController;
 const CameraMode = @import("render/camera.zig").CameraMode;
 const renderer = @import("render/renderer.zig");
 const TerrainManager = @import("render/terrain_manager.zig").TerrainManager;
+const LightingSystem = @import("render/lighting.zig").LightingSystem;
+const Skybox = @import("render/skybox.zig").Skybox;
+const ParticleSystem = @import("render/particles.zig").ParticleSystem;
 
 // Game state
 var state_manager: StateManager = undefined;
@@ -22,6 +25,9 @@ var camera_controller: CameraController = undefined;
 var planets: [8]Planet = undefined;
 var selected_planet: ?usize = null;
 var terrain_manager: ?TerrainManager = null;
+var lighting: LightingSystem = undefined;
+var skybox: Skybox = undefined;
+var particles: ?ParticleSystem = null;
 
 // Player state (for planet surface)
 var player_pos: rl.Vector3 = undefined;
@@ -47,11 +53,20 @@ pub fn main() !void {
     input = InputManager.init();
     camera_controller = CameraController.init();
     planets = getPlanets();
+    lighting = LightingSystem.init();
+    skybox = Skybox.init();
 
     // Initialize terrain manager
     var terrain_mgr = try TerrainManager.init(allocator);
     defer terrain_mgr.deinit();
     terrain_manager = terrain_mgr;
+
+    // Initialize particle system
+    var particle_sys = try ParticleSystem.init(allocator, 200);
+    defer particle_sys.deinit();
+    particles = particle_sys;
+
+    defer skybox.deinit();
 
     // Main game loop
     while (!rl.WindowShouldClose()) {
@@ -114,19 +129,24 @@ fn handleSolarSystemInput(inp: *InputManager) void {
             selected_planet = planet_idx;
             const planet = planets[planet_idx];
 
-            // Initialize player position on planet
+            // Initialize player position on planet (start at origin)
             player_pos = rl.Vector3{
                 .x = 0.0,
-                .y = planet.terrain_height + math.PLAYER_HEIGHT_OFFSET,
+                .y = 0.0, // Will be updated after terrain loads
                 .z = 0.0,
             };
             player_angle = 0.0;
 
             // Load terrain chunks for this planet
             if (terrain_manager) |*mgr| {
-                mgr.loadChunksAroundPlayer(player_pos, &planet) catch |err| {
+                mgr.loadChunksAroundPlayer(player_pos, &planet, &lighting) catch |err| {
                     std.debug.print("Failed to load terrain: {}\n", .{err});
                 };
+
+                // Get actual terrain height at player position
+                const terrain_height = mgr.getHeightAtPosition(player_pos.x, player_pos.z);
+                player_pos.y = terrain_height + math.PLAYER_HEIGHT_OFFSET;
+                std.debug.print("Player starting at height: {d}\n", .{player_pos.y});
             }
 
             // Start camera transition
@@ -193,6 +213,10 @@ fn updateGame(dt: f32) void {
             camera_controller.mode = .orbit;
         } else if (state_manager.current == .planet_surface) {
             camera_controller.mode = .first_person;
+            // Burst particles on landing
+            if (particles) |*p| {
+                p.burst(player_pos, 30);
+            }
         }
     }
 
@@ -201,6 +225,12 @@ fn updateGame(dt: f32) void {
         for (&planets) |*planet| {
             planet.update(dt, math.ORBIT_SPEED_MULTIPLIER);
         }
+    }
+
+    // Update particles
+    if (particles) |*p| {
+        const spawn_enabled = state_manager.current == .planet_surface;
+        p.update(dt, player_pos, spawn_enabled);
     }
 }
 
@@ -217,17 +247,24 @@ fn renderGame() void {
     switch (state_manager.current) {
         .solar_system, .transition => {
             renderer.renderSolarSystem(&planets);
+            // Render the sun light source
+            lighting.renderSun();
         },
         .planet_surface => {
+            // Render skybox first (background)
+            if (selected_planet) |planet_idx| {
+                const planet = planets[planet_idx];
+                skybox.render(camera_controller.camera.position, &planet);
+            }
+
             // Render terrain using terrain manager
             if (terrain_manager) |*mgr| {
                 mgr.render();
             }
 
-            // Render sky sphere (fallback for now)
-            if (selected_planet) |planet_idx| {
-                const planet = planets[planet_idx];
-                rl.DrawSphere(.{ .x = player_pos.x, .y = -1000.0, .z = player_pos.z }, 900.0, planet.color);
+            // Render particles
+            if (particles) |*p| {
+                p.render();
             }
         },
         else => {},
@@ -240,7 +277,7 @@ fn renderGame() void {
         },
         .planet_surface => {
             if (selected_planet) |planet_idx| {
-                renderer.renderPlanetSurfaceUI(planets[planet_idx].name);
+                renderer.renderPlanetSurfaceUI(&planets[planet_idx]);
             }
         },
         else => {},

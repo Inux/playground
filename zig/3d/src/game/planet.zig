@@ -1,6 +1,8 @@
 const std = @import("std");
 const raylib = @import("../raylib.zig");
 const rl = raylib.rl;
+const resources = @import("resources.zig");
+const ResourcePool = resources.ResourcePool;
 
 /// Planet data structure
 pub const Planet = struct {
@@ -12,10 +14,14 @@ pub const Planet = struct {
     angle: f32,
     surface_color: rl.Color,
     terrain_height: f32,
+    resources: ResourcePool,
 
-    /// Update planet's orbital position
+    /// Update planet's orbital position and ecosystem
     pub fn update(self: *Planet, dt: f32, speed_multiplier: f32) void {
         self.angle += self.orbit_speed * dt * speed_multiplier;
+
+        // Update ecosystem dynamics
+        resources.ResourceDependencies.updateEcosystem(&self.resources, dt);
     }
 
     /// Get planet's 3D position in orbit
@@ -50,6 +56,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 169, .g = 169, .b = 169, .a = 255 },
             .terrain_height = 0.3,
+            .resources = ResourcePool.init(),
         },
         .{
             .name = "Venus",
@@ -60,6 +67,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 255, .g = 198, .b = 73, .a = 255 },
             .terrain_height = 0.4,
+            .resources = ResourcePool.init(),
         },
         .{
             .name = "Earth",
@@ -70,6 +78,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 34, .g = 139, .b = 34, .a = 255 },
             .terrain_height = 0.8,
+            .resources = ResourcePool.init(),
         },
         .{
             .name = "Mars",
@@ -80,6 +89,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 193, .g = 68, .b = 14, .a = 255 },
             .terrain_height = 0.5,
+            .resources = ResourcePool.init(),
         },
         .{
             .name = "Jupiter",
@@ -90,6 +100,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 194, .g = 178, .b = 128, .a = 255 },
             .terrain_height = 0.2,
+            .resources = ResourcePool.init(),
         },
         .{
             .name = "Saturn",
@@ -100,6 +111,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 238, .g = 221, .b = 130, .a = 255 },
             .terrain_height = 0.2,
+            .resources = ResourcePool.init(),
         },
         .{
             .name = "Uranus",
@@ -110,6 +122,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 79, .g = 208, .b = 231, .a = 255 },
             .terrain_height = 0.3,
+            .resources = ResourcePool.init(),
         },
         .{
             .name = "Neptune",
@@ -120,6 +133,7 @@ pub fn getSolarSystem() [8]Planet {
             .angle = 0.0,
             .surface_color = .{ .r = 63, .g = 84, .b = 186, .a = 255 },
             .terrain_height = 0.3,
+            .resources = ResourcePool.init(),
         },
     };
 }

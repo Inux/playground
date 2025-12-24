@@ -92,7 +92,10 @@ pub fn terrainHeight(x: f32, z: f32, seed: u32) f32 {
     );
 
     // Combine base and detail, normalize to 0-1
-    return (base * 0.8 + detail * 0.2 + 1.0) * 0.5;
+    const result = (base * 0.8 + detail * 0.2 + 1.0) * 0.5;
+
+    // Safety: clamp to valid range
+    return @max(0.0, @min(1.0, result));
 }
 
 /// Generate height with biome-specific characteristics

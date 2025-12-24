@@ -3,6 +3,7 @@ const raylib = @import("../raylib.zig");
 const rl = raylib.rl;
 const noise = @import("../math/noise.zig");
 const Planet = @import("../game/planet.zig").Planet;
+const LightingSystem = @import("lighting.zig").LightingSystem;
 
 /// Terrain chunk for efficient rendering
 pub const TerrainChunk = struct {
@@ -127,6 +128,8 @@ pub const TerrainGenerator = struct {
         heightmap: []const f32,
         start_x: f32,
         start_z: f32,
+        planet: *const Planet,
+        lighting: *const LightingSystem,
     ) !rl.Mesh {
         const step = @as(f32, @floatFromInt(self.chunk_size)) / @as(f32, @floatFromInt(self.resolution - 1));
 
@@ -144,10 +147,13 @@ pub const TerrainGenerator = struct {
         const texcoords = try allocator.alloc(f32, vertex_count * 2);
         defer allocator.free(texcoords);
 
+        const colors = try allocator.alloc(u8, vertex_count * 4); // RGBA
+        defer allocator.free(colors);
+
         const indices = try allocator.alloc(u16, triangle_count * 3);
         defer allocator.free(indices);
 
-        // Generate vertices, normals, and UVs
+        // Generate vertices, normals, colors, and UVs
         var z: u32 = 0;
         while (z < self.resolution) : (z += 1) {
             var x: u32 = 0;
@@ -155,6 +161,7 @@ pub const TerrainGenerator = struct {
                 const idx = z * self.resolution + x;
                 const vert_idx = idx * 3;
                 const uv_idx = idx * 2;
+                const color_idx = idx * 4;
 
                 const world_x = start_x + @as(f32, @floatFromInt(x)) * step;
                 const world_z = start_z + @as(f32, @floatFromInt(z)) * step;
@@ -170,6 +177,14 @@ pub const TerrainGenerator = struct {
                 normals[vert_idx + 0] = normal.x;
                 normals[vert_idx + 1] = normal.y;
                 normals[vert_idx + 2] = normal.z;
+
+                // Apply lighting to determine vertex color
+                const position = rl.Vector3{ .x = world_x, .y = height, .z = world_z };
+                const lit_color = lighting.applyLighting(planet.surface_color, normal, position);
+                colors[color_idx + 0] = lit_color.r;
+                colors[color_idx + 1] = lit_color.g;
+                colors[color_idx + 2] = lit_color.b;
+                colors[color_idx + 3] = lit_color.a;
 
                 // UV coordinates
                 texcoords[uv_idx + 0] = @as(f32, @floatFromInt(x)) / @as(f32, @floatFromInt(self.resolution - 1));
@@ -208,20 +223,20 @@ pub const TerrainGenerator = struct {
         mesh.triangleCount = @intCast(triangle_count);
 
         // Allocate mesh data (raylib will manage this memory)
-        mesh.vertices = @ptrCast(rl.MemAlloc(@intCast(vertex_count * 3 * @sizeOf(f32))));
-        mesh.normals = @ptrCast(rl.MemAlloc(@intCast(vertex_count * 3 * @sizeOf(f32))));
-        mesh.texcoords = @ptrCast(rl.MemAlloc(@intCast(vertex_count * 2 * @sizeOf(f32))));
-        mesh.indices = @ptrCast(rl.MemAlloc(@intCast(triangle_count * 3 * @sizeOf(u16))));
+        mesh.vertices = @ptrCast(@alignCast(rl.MemAlloc(@intCast(vertex_count * 3 * @sizeOf(f32)))));
+        mesh.normals = @ptrCast(@alignCast(rl.MemAlloc(@intCast(vertex_count * 3 * @sizeOf(f32)))));
+        mesh.texcoords = @ptrCast(@alignCast(rl.MemAlloc(@intCast(vertex_count * 2 * @sizeOf(f32)))));
+        mesh.colors = @ptrCast(@alignCast(rl.MemAlloc(@intCast(vertex_count * 4 * @sizeOf(u8)))));
+        mesh.indices = @ptrCast(@alignCast(rl.MemAlloc(@intCast(triangle_count * 3 * @sizeOf(u16)))));
 
         // Copy data to mesh
         @memcpy(mesh.vertices[0 .. vertex_count * 3], vertices);
         @memcpy(mesh.normals[0 .. vertex_count * 3], normals);
         @memcpy(mesh.texcoords[0 .. vertex_count * 2], texcoords);
+        @memcpy(mesh.colors[0 .. vertex_count * 4], colors);
         @memcpy(mesh.indices[0 .. triangle_count * 3], indices);
 
-        // Upload mesh to GPU
-        rl.UploadMesh(&mesh, false);
-
+        // Note: Don't upload mesh here - LoadModelFromMesh will do it
         return mesh;
     }
 
@@ -232,6 +247,7 @@ pub const TerrainGenerator = struct {
         chunk_x: i32,
         chunk_z: i32,
         planet: *const Planet,
+        lighting: *const LightingSystem,
     ) !TerrainChunk {
         const start_x = @as(f32, @floatFromInt(chunk_x)) * @as(f32, @floatFromInt(self.chunk_size));
         const start_z = @as(f32, @floatFromInt(chunk_z)) * @as(f32, @floatFromInt(self.chunk_size));
@@ -240,8 +256,8 @@ pub const TerrainGenerator = struct {
         const heightmap = try self.generateHeightmap(allocator, start_x, start_z, planet);
         defer allocator.free(heightmap);
 
-        // Generate mesh
-        const mesh = try self.generateMesh(allocator, heightmap, start_x, start_z);
+        // Generate mesh with lighting
+        const mesh = try self.generateMesh(allocator, heightmap, start_x, start_z, planet, lighting);
 
         // Create model from mesh
         const model = rl.LoadModelFromMesh(mesh);

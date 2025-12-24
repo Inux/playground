@@ -5,6 +5,7 @@ const terrain = @import("terrain.zig");
 const TerrainGenerator = terrain.TerrainGenerator;
 const TerrainChunk = terrain.TerrainChunk;
 const Planet = @import("../game/planet.zig").Planet;
+const LightingSystem = @import("lighting.zig").LightingSystem;
 
 /// Manages terrain chunks for a planet
 pub const TerrainManager = struct {
@@ -22,7 +23,10 @@ pub const TerrainManager = struct {
         return TerrainManager{
             .allocator = allocator,
             .generator = TerrainGenerator.init(32, 33), // 32x32 world units, 33x33 vertices
-            .chunks = std.ArrayList(TerrainChunk).init(allocator),
+            .chunks = .{
+                .items = &[_]TerrainChunk{},
+                .capacity = 0,
+            },
             .current_planet = null,
             .view_distance = 2, // 2 chunks in each direction = 5x5 grid
             .chunk_size = 32,
@@ -32,7 +36,7 @@ pub const TerrainManager = struct {
 
     pub fn deinit(self: *TerrainManager) void {
         self.clearChunks();
-        self.chunks.deinit();
+        self.chunks.deinit(self.allocator);
     }
 
     /// Clear all loaded chunks
@@ -44,7 +48,7 @@ pub const TerrainManager = struct {
     }
 
     /// Load chunks around player position
-    pub fn loadChunksAroundPlayer(self: *TerrainManager, player_pos: rl.Vector3, planet: *const Planet) !void {
+    pub fn loadChunksAroundPlayer(self: *TerrainManager, player_pos: rl.Vector3, planet: *const Planet, lighting: *const LightingSystem) !void {
         // Clear existing chunks
         self.clearChunks();
         self.current_planet = planet;
@@ -59,8 +63,8 @@ pub const TerrainManager = struct {
         while (z <= player_chunk_z + view) : (z += 1) {
             var x: i32 = player_chunk_x - view;
             while (x <= player_chunk_x + view) : (x += 1) {
-                const chunk = try self.generator.generateChunk(self.allocator, x, z, planet);
-                try self.chunks.append(chunk);
+                const chunk = try self.generator.generateChunk(self.allocator, x, z, planet, lighting);
+                try self.chunks.append(self.allocator, chunk);
             }
         }
     }

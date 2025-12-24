@@ -35,4 +35,25 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run the solar system explorer");
     run_step.dependOn(&run_cmd.step);
+
+    // Add test step
+    const test_module = b.createModule(.{
+        .root_source_file = b.path("src/test_core.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // Add raylib paths to test module
+    test_module.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
+    test_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    test_module.link_libc = true;
+    test_module.linkSystemLibrary("raylib", .{});
+
+    const test_exe = b.addTest(.{
+        .root_module = test_module,
+    });
+
+    const run_test = b.addRunArtifact(test_exe);
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_test.step);
 }

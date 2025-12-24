@@ -3,6 +3,7 @@ const raylib = @import("../raylib.zig");
 const rl = raylib.rl;
 const Planet = @import("../game/planet.zig").Planet;
 const math = @import("../math/utils.zig");
+const resource_ui = @import("resource_ui.zig");
 
 /// Render the solar system view (sun and orbiting planets)
 pub fn renderSolarSystem(planets: []Planet) void {
@@ -71,11 +72,15 @@ pub fn renderSolarSystemUI() void {
 }
 
 /// Render UI for planet surface view
-pub fn renderPlanetSurfaceUI(planet_name: [*:0]const u8) void {
+pub fn renderPlanetSurfaceUI(planet: *const Planet) void {
     var buffer: [128]u8 = undefined;
-    const text = std.fmt.bufPrintZ(&buffer, "On {s} - Press ESC to return to solar system", .{planet_name}) catch "Surface";
+    const text = std.fmt.bufPrintZ(&buffer, "On {s} - Press ESC to return to solar system", .{planet.name}) catch "Surface";
     rl.DrawText(text, 10, 10, 20, rl.WHITE);
-    rl.DrawText("WASD to move | Mouse to look around (WIP)", 10, 40, 16, rl.LIGHTGRAY);
+    rl.DrawText("WASD to move | AD to rotate", 10, 40, 16, rl.LIGHTGRAY);
+
+    // Render resource bars on the right side
+    const screen_width = math.SCREEN_WIDTH;
+    resource_ui.renderResourceBars(&planet.resources, screen_width - 220, 10);
 }
 
 /// Render FPS counter
